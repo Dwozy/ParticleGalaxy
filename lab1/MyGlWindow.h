@@ -21,6 +21,8 @@
 
 #include "core.h"
 
+#include "Galaxy.hpp"
+
 
 class MyGlWindow : public Fl_Gl_Window {
 public:
@@ -34,6 +36,7 @@ public:
 	void doPick();
 	void test();
 	int selected;
+	Galaxy galaxy;
 
 private:
 	void draw();					// standard FlTk
