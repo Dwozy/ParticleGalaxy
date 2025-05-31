@@ -5,7 +5,7 @@
 
 class Mover {
 public:
-	Mover(cyclone::Vector3 position, float mass = 1.0f) : id(0), mass(mass) {
+	Mover(cyclone::Vector3 position, float mass = 1.0f, float size = 1.0f) : id(0), mass(mass), size(size) {
 		m_particle = new cyclone::Particle();
 		m_particle->setPosition(position.x, position.y, position.z);
 		m_particle->setMass(mass);

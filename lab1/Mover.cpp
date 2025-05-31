@@ -23,10 +23,12 @@ void Mover::update(float duration, cyclone::Vector3 gravity) {
 		return;
 	}
 
-	std::cout << "gravity is " << gravity.toString() << std::endl;
-	auto m_gravity = new cyclone::ParticleGravity(gravity);
+	std::cout << "gravity for mover " << this->id << " is " << gravity.toString() << std::endl;
+
+	/*auto m_gravity = new cyclone::ParticleGravity(gravity);
 	m_forces->clear();
 	m_forces->add(m_particle, m_gravity);
-	m_forces->updateForces(duration);
-	m_particle->integrate(duration);
+	m_forces->updateForces(duration);*/
+	this->m_particle->addForce(gravity);
+	this->m_particle->integrate(duration);
 }

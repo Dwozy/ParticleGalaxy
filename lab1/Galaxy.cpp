@@ -54,7 +54,7 @@ cyclone::Vector3 Galaxy::setDiskRotationVelocity(
 cyclone::Vector3 Galaxy::gravityForceForParticle(MoverPtr p)
 {
     // Gravitational constant (arbitrary units)
-    const float G = 1.0f;
+    const float G = 500.0f;
 
 	// original particle data
 	const auto p_pos = p->m_particle->getPosition();
@@ -63,8 +63,10 @@ cyclone::Vector3 Galaxy::gravityForceForParticle(MoverPtr p)
     cyclone::Vector3 totalForce(0, 0, 0);
 
     for (const auto& particle : this->particles) {
+		if (particle->id == p->id) continue;
         cyclone::Vector3 pos = particle->m_particle->getPosition();
         float mass = particle->mass;
+		std::cout << "computing between mass p" << p_mass << " and mass " << mass << std::endl;
 
         cyclone::Vector3 distVec = pos - p_pos;
         float distanceSq = distVec.squareMagnitude();
