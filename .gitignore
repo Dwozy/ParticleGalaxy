@@ -33,3 +33,5 @@
 
 .direnv/
 .vscode/
+.vs/
+build/

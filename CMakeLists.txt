@@ -20,7 +20,7 @@ endif()
 set(PROJECT_NAME lab)
 
 #Current lab
-set(CURRENT lab0)
+set(CURRENT lab1)
 
 set(CMAKE_CXX_STANDARD 17)
 
