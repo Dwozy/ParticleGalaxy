@@ -2,7 +2,6 @@
 #include <iostream>
 #include <particle.h>
 #include <pfgen.h>
-#include <DrawUtils.H>
 
 class Mover {
 public:
@@ -11,10 +10,7 @@ public:
 		m_particle->setPosition(position.x, position.y, position.z);
 		m_particle->setMass(mass);
 		m_particle->setDamping(1.0f); // no damping in space
-
-		auto m_gravity = new cyclone::ParticleGravity(cyclone::Vector3(0, -9, 0));
 		m_forces = new cyclone::ParticleForceRegistry();  //Container
-		m_forces->add(m_particle, m_gravity);
 	};
 	~Mover() {};
 	cyclone::ParticleForceRegistry* m_forces;
@@ -26,5 +22,5 @@ public:
 	int id;
 
 	void draw() const;
-	void update(float duration);
+	void update(float duration, cyclone::Vector3 gravity);
 };

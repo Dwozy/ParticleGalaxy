@@ -52,3 +52,4 @@ private:
 	void setupLight(float x, float y, float z);
 };
 
+void create_galaxy();

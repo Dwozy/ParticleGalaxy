@@ -1,19 +1,27 @@
 
 
 #include "MyGlWindow.h"
-
-
-
 #include <iostream>
 #include "drawUtils.h"
-
-
 #include "timing.h"
 
 
 static double DEFAULT_VIEW_POINT[3] = { 30, 30, 30 };
 static double DEFAULT_VIEW_CENTER[3] = { 0, 0, 0 };
 static double DEFAULT_UP_VECTOR[3] = { 0, 1, 0 };
+
+// OUR FUNCTIONS:
+
+void create_galaxy(MyGlWindow* window)
+{
+	window->galaxy.addParticle(std::make_shared<Mover>(cyclone::Vector3(0, 0, 0), 10));
+	window->galaxy.addParticle(std::make_shared<Mover>(cyclone::Vector3(5, 0, 0), 10));
+	window->galaxy.setBaseVelocity(cyclone::Vector3(0, 0, 0), 1.0);
+}
+
+// ^ OUR FUNCTIONS
+
+
 
 MyGlWindow::MyGlWindow(int x, int y, int w, int h) :
 	Fl_Gl_Window(x, y, w, h)
@@ -31,11 +39,8 @@ MyGlWindow::MyGlWindow(int x, int y, int w, int h) :
 	run = 0;
 
 	// GALAXY PART
-	this->galaxy.addParticle(std::make_shared<Mover>(cyclone::Vector3(0, 0, 0), 1));
-	this->galaxy.addParticle(std::make_shared<Mover>(cyclone::Vector3(2, 0, 0), 1));
+	create_galaxy(this);
 }
-
-
 void MyGlWindow::setupLight(float x, float y, float z)
 {
 
@@ -86,13 +91,11 @@ void setupObjects(void)
 	glStencilOp(GL_REPLACE, GL_REPLACE, GL_REPLACE);
 	glStencilMask(0x1);		// only deal with the 1st bit
 }
-
 void MyGlWindow::drawStuff()
 {
 	glColor4f(1, 1, 0, 0.5);
 	polygonf(4, 20., 0., -25., 20., 0., 25., -20., 30., 25., -20., 30., -25.);
 }
-
 //==========================================================================
 void MyGlWindow::draw()
 //==========================================================================
@@ -158,12 +161,10 @@ void MyGlWindow::draw()
 	setProjection();
 	glEnable(GL_COLOR_MATERIAL);
 }
-
 void MyGlWindow::test()
 {
 
 }
-
 void MyGlWindow::update()
 {
 
@@ -175,11 +176,9 @@ void MyGlWindow::update()
 	float duration = (float)TimingData::get().lastFrameDuration * 0.003;
 	if (duration <= 0.0f) return;
 
-	
+	this->galaxy.update(duration);
 
 }
-
-
 void MyGlWindow::doPick()
 {
 	make_current();		// since we'll need to do some GL stuff
@@ -227,9 +226,6 @@ void MyGlWindow::doPick()
 	}
 	//printf("Selected Cube %d\n", selectedCube);
 }
-
-
-
 void MyGlWindow::setProjection(int clearProjection)
 //==========================================================================
 {
@@ -259,7 +255,6 @@ static int last_push;
 int m_pressedMouseButton;
 int m_lastMouseX;
 int m_lastMouseY;
-
 int MyGlWindow::handle(int e)
 //==========================================================================
 {

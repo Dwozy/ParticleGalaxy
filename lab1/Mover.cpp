@@ -18,11 +18,15 @@ void Mover::draw() const {
 	glLoadName(0);
 }
 
-void Mover::update(float duration) {
+void Mover::update(float duration, cyclone::Vector3 gravity) {
 	if (this->is_selected) {
 		return;
 	}
 
+	std::cout << "gravity is " << gravity.toString() << std::endl;
+	auto m_gravity = new cyclone::ParticleGravity(gravity);
+	m_forces->clear();
+	m_forces->add(m_particle, m_gravity);
 	m_forces->updateForces(duration);
 	m_particle->integrate(duration);
 }
