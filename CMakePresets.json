@@ -10,13 +10,14 @@
           "cacheVariables": {
             "CMAKE_C_COMPILER": "cl.exe",
             "CMAKE_CXX_COMPILER": "cl.exe",
-            "CMAKE_TOOLCHAIN_FILE": "$env{VCPKG_TOOLCHAIN}"
+            "CMAKE_TOOLCHAIN_FILE": "C:/Users/Axel/Documents/vcpkg/scripts/buildsystems/vcpkg.cmake"
           },
           "condition": {
             "type": "equals",
             "lhs": "${hostSystemName}",
             "rhs": "Windows"
           }
+
         },
         {
             "name": "x64-debug",
