@@ -21,6 +21,9 @@ void Galaxy::draw() const {
 }
 
 void Galaxy::update(float duration) {
+	// for stability despite lag :
+	duration = 1.0 / 240.0; // 60 FPS
+
 	for (const auto& particle : this->particles) {
 		particle->update(duration, this->gravityForceForParticle(particle));
 	}
@@ -45,7 +48,7 @@ void Galaxy::createGalaxies(int numParticlesPerGalaxy, float galaxyRadius) {
 			height,
 			radius * std::sin(angle)
 		);
-		this->addParticle(std::make_shared<Mover>(position));
+		this->addParticle(std::make_shared<Mover>(position, 1, 0.2));
 	}
 }
 
@@ -77,7 +80,8 @@ cyclone::Vector3 Galaxy::setDiskRotationVelocity(
 cyclone::Vector3 Galaxy::gravityForceForParticle(MoverPtr p)
 {
     // Gravitational constant (arbitrary units)
-    const float G = 500.0f;
+    const float G = 30;
+	const float smooth_force = 2.0f;
 
 	// original particle data
 	const auto p_pos = p->m_particle->getPosition();
@@ -89,7 +93,6 @@ cyclone::Vector3 Galaxy::gravityForceForParticle(MoverPtr p)
 		if (particle->id == p->id) continue;
         cyclone::Vector3 pos = particle->m_particle->getPosition();
         float mass = particle->mass;
-		std::cout << "computing between mass p" << p_mass << " and mass " << mass << std::endl;
 
         cyclone::Vector3 distVec = pos - p_pos;
         float distanceSq = distVec.squareMagnitude();
@@ -98,7 +101,7 @@ cyclone::Vector3 Galaxy::gravityForceForParticle(MoverPtr p)
             float distance = std::sqrt(distanceSq);
             cyclone::Vector3 direction = distVec / distance;
             // F = G * m1 * m2 / distVec^2
-            float forceMagnitude = G * p_mass * mass / distanceSq;
+			float forceMagnitude = G * p_mass * mass / (distanceSq +smooth_force);
             totalForce += direction * forceMagnitude;
         }
     }
