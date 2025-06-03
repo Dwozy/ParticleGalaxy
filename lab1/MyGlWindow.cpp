@@ -1,13 +1,8 @@
 
 
 #include "MyGlWindow.h"
-
-
-
 #include <iostream>
 #include "drawUtils.h"
-
-
 #include "timing.h"
 
 
@@ -15,30 +10,37 @@ static double DEFAULT_VIEW_POINT[3] = { 30, 30, 30 };
 static double DEFAULT_VIEW_CENTER[3] = { 0, 0, 0 };
 static double DEFAULT_UP_VECTOR[3] = { 0, 1, 0 };
 
+// OUR FUNCTIONS:
+
+void create_galaxy(MyGlWindow* window)
+{
+	window->galaxy.addParticle(std::make_shared<Mover>(cyclone::Vector3(0, 0, 0), 10, 2));
+	window->galaxy.addParticle(std::make_shared<Mover>(cyclone::Vector3(10, 0, 0), 1));
+	window->galaxy.setBaseVelocity(cyclone::Vector3(0, 0, 0), 3.0);
+}
+
+// ^ OUR FUNCTIONS
+
+
+
 MyGlWindow::MyGlWindow(int x, int y, int w, int h) :
 	Fl_Gl_Window(x, y, w, h)
 	//==========================================================================
 {
-
+	// INITIALISATION
 	mode(FL_RGB | FL_ALPHA | FL_DOUBLE | FL_STENCIL);
-
 	fieldOfView = 45;
-
 	glm::vec3 viewPoint(DEFAULT_VIEW_POINT[0], DEFAULT_VIEW_POINT[1], DEFAULT_VIEW_POINT[2]);
 	glm::vec3 viewCenter(DEFAULT_VIEW_CENTER[0], DEFAULT_VIEW_CENTER[1], DEFAULT_VIEW_CENTER[2]);
 	glm::vec3 upVector(DEFAULT_UP_VECTOR[0], DEFAULT_UP_VECTOR[1], DEFAULT_UP_VECTOR[2]);
-
 	float aspect = (w / (float)h);
 	m_viewer = new Viewer(viewPoint, viewCenter, upVector, 45.0f, aspect);
-
-	
-
 	TimingData::init();
 	run = 0;
-	selected = -1;
+
+	// GALAXY PART
+	create_galaxy(this);
 }
-
-
 void MyGlWindow::setupLight(float x, float y, float z)
 {
 
@@ -81,10 +83,6 @@ void MyGlWindow::setupLight(float x, float y, float z)
 	glEnable(GL_BLEND);
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 }
-
-
-
-
 void setupObjects(void)
 {
 	glEnable(GL_DEPTH_TEST);
@@ -93,14 +91,11 @@ void setupObjects(void)
 	glStencilOp(GL_REPLACE, GL_REPLACE, GL_REPLACE);
 	glStencilMask(0x1);		// only deal with the 1st bit
 }
-
-
 void MyGlWindow::drawStuff()
 {
 	glColor4f(1, 1, 0, 0.5);
 	polygonf(4, 20., 0., -25., 20., 0., 25., -20., 30., 25., -20., 30., -25.);
 }
-
 //==========================================================================
 void MyGlWindow::draw()
 //==========================================================================
@@ -133,61 +128,43 @@ void MyGlWindow::draw()
 
 
 	// Add a sphere to the scene.
-   //Draw axises
-	glLineWidth(3.0f);
-	glBegin(GL_LINES);
-	glColor3f(1, 0, 0);
+    //Draw axises
+	{
+		glLineWidth(3.0f);
+		glBegin(GL_LINES);
+		glColor3f(1, 0, 0);
+		glVertex3f(0, 0.1, 0);
+		glVertex3f(0, 100, 0);
+		glColor3f(0, 1, 0);
+		glVertex3f(0, 0.1, 0);
+		glVertex3f(100, 0.1, 0);
+		glColor3f(0, 0, 1);
+		glVertex3f(0, 0.1, 0);
+		glVertex3f(0, 0.1, 100);
+		glEnd();
+		glLineWidth(1.0f);
+		glDisable(GL_LIGHTING);
+		glEnable(GL_BLEND);
+		glColorMaterial(GL_FRONT_AND_BACK, GL_AMBIENT_AND_DIFFUSE);
+		//draw shadow
+		setupShadows();
+		unsetupShadows();
+		glDisable(GL_BLEND);
+	}
 
-	glVertex3f(0, 0.1, 0);
-	glVertex3f(0, 100, 0);
-
-	glColor3f(0, 1, 0);
-
-	glVertex3f(0, 0.1, 0);
-	glVertex3f(100, 0.1, 0);
-
-	glColor3f(0, 0, 1);
-
-	glVertex3f(0, 0.1, 0);
-	glVertex3f(0, 0.1, 100);
-	glEnd();
-	glLineWidth(1.0f);
-
-
-
-
-	glDisable(GL_LIGHTING);
-	glEnable(GL_BLEND);
-	glColorMaterial(GL_FRONT_AND_BACK, GL_AMBIENT_AND_DIFFUSE);
-
-	//draw shadow
-	setupShadows();
-	
-	unsetupShadows();
-
-
-
-
-
-	glDisable(GL_BLEND);
+	this->galaxy.draw();
 
 	//draw objects
 	glPushMatrix();
-
-
 	glPopMatrix();
-
-
 	glViewport(0, 0, w(), h());
 	setProjection();
 	glEnable(GL_COLOR_MATERIAL);
 }
-
 void MyGlWindow::test()
 {
 
 }
-
 void MyGlWindow::update()
 {
 
@@ -199,11 +176,9 @@ void MyGlWindow::update()
 	float duration = (float)TimingData::get().lastFrameDuration * 0.003;
 	if (duration <= 0.0f) return;
 
-	
+	this->galaxy.update(duration);
 
 }
-
-
 void MyGlWindow::doPick()
 {
 	make_current();		// since we'll need to do some GL stuff
@@ -251,9 +226,6 @@ void MyGlWindow::doPick()
 	}
 	//printf("Selected Cube %d\n", selectedCube);
 }
-
-
-
 void MyGlWindow::setProjection(int clearProjection)
 //==========================================================================
 {
@@ -283,7 +255,6 @@ static int last_push;
 int m_pressedMouseButton;
 int m_lastMouseX;
 int m_lastMouseY;
-
 int MyGlWindow::handle(int e)
 //==========================================================================
 {
