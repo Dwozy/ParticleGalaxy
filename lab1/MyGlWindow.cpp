@@ -15,7 +15,7 @@ static double DEFAULT_UP_VECTOR[3] = { 0, 1, 0 };
 void create_galaxy(MyGlWindow* window)
 {
 	window->galaxy.addParticle(std::make_shared<Mover>(cyclone::Vector3(0, 0, 0), 3000, 0.5));
-	window->galaxy.createGalaxies(1000, 30);
+	window->galaxy.createGalaxyDisk(1000, 30);
 	window->galaxy.setBaseVelocity(cyclone::Vector3(0, 0, 0), 3);
 }
 

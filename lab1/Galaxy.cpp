@@ -38,7 +38,7 @@ float randomFloat(float min, float max) {
 	return dis(gen);
 }
 
-void Galaxy::createGalaxies(int numParticlesPerGalaxy, float galaxyRadius) {
+void Galaxy::createGalaxyDisk(int numParticlesPerGalaxy, float galaxyRadius) {
 	for (int i = 0; i < numParticlesPerGalaxy; ++i) {
 		float angle = randomFloat(0.0f, 2.0f * M_PI);
 		float radius = std::sqrt(randomFloat(0.0f, 1.0f)) * galaxyRadius;

@@ -11,7 +11,7 @@ public:
 	Galaxy() = default;
 	MoverPtr addParticle(const MoverPtr& particle);
 	void draw() const;
-	void createGalaxies(int numParticlesPerGalaxy, float galaxyRadius);
+	void createGalaxyDisk(int numParticlesPerGalaxy, float galaxyRadius);
 	void setBaseVelocity(cyclone::Vector3 center, float scale);
 	void update(float duration);
 private:
