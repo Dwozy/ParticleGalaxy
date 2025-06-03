@@ -16,7 +16,8 @@ void create_galaxy(MyGlWindow* window)
 {
 	window->galaxy.addParticle(std::make_shared<Mover>(cyclone::Vector3(0, 0, 0), 10, 2));
 	window->galaxy.addParticle(std::make_shared<Mover>(cyclone::Vector3(10, 0, 0), 1));
-	window->galaxy.setBaseVelocity(cyclone::Vector3(0, 0, 0), 3.0);
+	window->galaxy.createGalaxies(1000, 100.0f);
+	window->galaxy.setBaseVelocity(cyclone::Vector3(0, 0, 0), 3);
 }
 
 // ^ OUR FUNCTIONS
@@ -104,7 +105,7 @@ void MyGlWindow::draw()
 	glViewport(0, 0, w(), h());
 
 	// clear the window, be sure to clear the Z-Buffer too
-	glClearColor(0.2f, 0.2f, .2f, 0);		// background should be blue
+	glClearColor(0, 0, 0, 0);		// background should be blue
 
 
 	glClearStencil(0);
@@ -116,41 +117,11 @@ void MyGlWindow::draw()
 
 
 	// now draw the ground plane
-	setProjection();
-	setupFloor();
 
-	glPushMatrix();
-	drawFloor(200, 20);
-	glPopMatrix();
 
 
 	setupLight(m_viewer->getViewPoint().x, m_viewer->getViewPoint().y, m_viewer->getViewPoint().z);
 
-
-	// Add a sphere to the scene.
-    //Draw axises
-	{
-		glLineWidth(3.0f);
-		glBegin(GL_LINES);
-		glColor3f(1, 0, 0);
-		glVertex3f(0, 0.1, 0);
-		glVertex3f(0, 100, 0);
-		glColor3f(0, 1, 0);
-		glVertex3f(0, 0.1, 0);
-		glVertex3f(100, 0.1, 0);
-		glColor3f(0, 0, 1);
-		glVertex3f(0, 0.1, 0);
-		glVertex3f(0, 0.1, 100);
-		glEnd();
-		glLineWidth(1.0f);
-		glDisable(GL_LIGHTING);
-		glEnable(GL_BLEND);
-		glColorMaterial(GL_FRONT_AND_BACK, GL_AMBIENT_AND_DIFFUSE);
-		//draw shadow
-		setupShadows();
-		unsetupShadows();
-		glDisable(GL_BLEND);
-	}
 
 	this->galaxy.draw();
 

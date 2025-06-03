@@ -27,6 +27,29 @@ void Galaxy::update(float duration) {
 }
 
 
+float randomFloat(float min, float max) {
+	std::random_device rd; 
+	std::mt19937 gen(rd());
+	std::uniform_real_distribution<float> dis(min, max);
+
+	return dis(gen);
+}
+
+void Galaxy::createGalaxies(int numParticlesPerGalaxy, float galaxyRadius) {
+	for (int i = 0; i < numParticlesPerGalaxy; ++i) {
+		float angle = randomFloat(0.0f, 2.0f * M_PI);
+		float radius = std::sqrt(randomFloat(0.0f, 1.0f)) * galaxyRadius;
+		float height = randomFloat(-0.05f * galaxyRadius, 0.05f * galaxyRadius);
+		cyclone::Vector3 position(
+			radius * std::cos(angle),
+			height,
+			radius * std::sin(angle)
+		);
+		this->addParticle(std::make_shared<Mover>(position));
+	}
+}
+
+
 // Sets the base velocity for a particle to rotate on a disk around the given center.
 // The velocity is tangent to the circle defined by the center and the particle's position.
 // The farther the particle from the center, the larger the velocity (proportional to distance).

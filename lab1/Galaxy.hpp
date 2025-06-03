@@ -1,5 +1,8 @@
 #pragma once
+#define _USE_MATH_DEFINES
 #include "Mover.hpp"
+#include <math.h>
+#include <random>
 
 typedef std::shared_ptr<Mover> MoverPtr;
 
@@ -8,6 +11,7 @@ public:
 	Galaxy() = default;
 	MoverPtr addParticle(const MoverPtr& particle);
 	void draw() const;
+	void createGalaxies(int numParticlesPerGalaxy, float galaxyRadius);
 	void setBaseVelocity(cyclone::Vector3 center, float scale);
 	void update(float duration);
 private:
