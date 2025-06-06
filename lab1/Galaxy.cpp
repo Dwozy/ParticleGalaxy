@@ -188,33 +188,6 @@ void Galaxy::update(float duration) {
 		mutex->unlock();
 	}
 	std::cout << "2" << std::endl;
-
-	//// for stability despite lag :
-	//duration = 1.0 / 240.0; // 60 FPS
-
-	//const int numThreads = std::thread::hardware_concurrency();
-	//const int numParticles = static_cast<int>(particles->size());
-	//const int blockSize = (numParticles + numThreads - 1) / numThreads;
-
-	//std::vector<std::thread> threads;
-
-	//for (int t = 0; t < numThreads; ++t) {
-	//	int start = t * blockSize;
-	//	int end = std::min(start + blockSize, numParticles);
-
-	//	if (start >= end) break;
-
-	//	threads.emplace_back([this, start, end, duration]() {
-	//		for (int i = start; i < end; ++i) {
-	//			cyclone::Vector3 force = gravityForceForParticle(i, particles);
-	//			//particle.update(duration, force);
-	//		}
-	//		});
-	//}
-
-	//for (auto& thread : threads) {
-	//	thread.join();
-	//}
 }
 
 
