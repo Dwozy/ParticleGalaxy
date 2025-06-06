@@ -1,23 +1,26 @@
 #include <Galaxy.hpp>
 #include <thread>
 
-MoverPtr Galaxy::addParticle(const MoverPtr& particle) {
-	particle->id = this->particles.size();
-	this->particles.push_back(particle);
-	return particle;
+Galaxy::Galaxy(): particles(std::make_shared<std::vector<Mover>>())
+{
+}
+
+void Galaxy::addParticle(Mover &particle) {
+	particle.id = this->particles->size();
+	this->particles->push_back(particle);
 }
 
 void Galaxy::setBaseVelocity(cyclone::Vector3 center, float scale) {
-	for (const auto& particle : this->particles) {
-		particle->m_particle->setVelocity(
-			setDiskRotationVelocity(center, particle->m_particle->getPosition(), scale)
+	for (auto& particle : *this->particles) {
+		particle.m_particle.setVelocity(
+			setDiskRotationVelocity(center, particle.m_particle.getPosition(), scale)
 		);
 	}
 }
 
 void Galaxy::draw() const {
-	for (const auto& particle : this->particles) {
-		particle->draw();
+	for (const auto& particle : *this->particles) {
+		particle.draw();
 	}
 }
 
@@ -26,7 +29,7 @@ void Galaxy::update(float duration) {
 	duration = 1.0 / 240.0; // 60 FPS
 
 	const int numThreads = std::thread::hardware_concurrency();
-	const int numParticles = static_cast<int>(particles.size());
+	const int numParticles = static_cast<int>(particles->size());
 	const int blockSize = (numParticles + numThreads - 1) / numThreads;
 
 	std::vector<std::thread> threads;
@@ -39,9 +42,9 @@ void Galaxy::update(float duration) {
 
 		threads.emplace_back([this, start, end, duration]() {
 			for (int i = start; i < end; ++i) {
-				MoverPtr particle = particles[i];
+				Mover &particle = (*particles)[i];
 				cyclone::Vector3 force = this->gravityForceForParticle(particle);
-				particle->update(duration, force);
+				particle.update(duration, force);
 			}
 			});
 	}
@@ -70,7 +73,7 @@ void Galaxy::createGalaxyDisk(int numParticlesPerGalaxy, float galaxyRadius) {
 			height,
 			radius * std::sin(angle)
 		);
-		this->addParticle(std::make_shared<Mover>(position, 1, 0.2));
+		this->addParticle(Mover(position, 1, 0.2));
 	}
 }
 
@@ -99,22 +102,22 @@ cyclone::Vector3 Galaxy::setDiskRotationVelocity(
 	return tangent * speed;
 }
 
-cyclone::Vector3 Galaxy::gravityForceForParticle(MoverPtr p)
+cyclone::Vector3 Galaxy::gravityForceForParticle(Mover& p)
 {
     // Gravitational constant (arbitrary units)
     const float G = 30;
 	const float smooth_force = 2.0f;
 
 	// original particle data
-	const auto p_pos = p->m_particle->getPosition();
-	const auto p_mass = p->mass;
+	const auto p_pos = p.m_particle.getPosition();
+	const auto p_mass = p.mass;
 
     cyclone::Vector3 totalForce(0, 0, 0);
 
-    for (const auto& particle : this->particles) {
-		if (particle->id == p->id) continue;
-        cyclone::Vector3 pos = particle->m_particle->getPosition();
-        float mass = particle->mass;
+    for (const auto& particle : *this->particles) {
+		if (particle.id == p.id) continue;
+        cyclone::Vector3 pos = particle.m_particle.getPosition();
+        float mass = particle.mass;
 
         cyclone::Vector3 distVec = pos - p_pos;
         float distanceSq = distVec.squareMagnitude();

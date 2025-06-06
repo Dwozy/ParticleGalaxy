@@ -4,12 +4,10 @@
 #include <math.h>
 #include <random>
 
-typedef std::shared_ptr<Mover> MoverPtr;
-
 class Galaxy {
 public:
-	Galaxy() = default;
-	MoverPtr addParticle(const MoverPtr& particle);
+	Galaxy();
+	void addParticle(Mover &particle);
 	void draw() const;
 	void createGalaxyDisk(int numParticlesPerGalaxy, float galaxyRadius);
 	void setBaseVelocity(cyclone::Vector3 center, float scale);
@@ -20,7 +18,7 @@ private:
 		const cyclone::Vector3& position,
 		float velocityScale
 	) const;
-	cyclone::Vector3 gravityForceForParticle(MoverPtr p);
+	cyclone::Vector3 gravityForceForParticle(Mover& p);
 private:
-	std::vector<std::shared_ptr<Mover>> particles;
+	std::shared_ptr<std::vector<Mover>> particles;
 };
