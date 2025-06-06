@@ -2,35 +2,33 @@
 #include <thread>
 #include <mutex>
 #include <tuple>
+#include "MyGlWindow.h"
 
-constexpr auto DURATION = 1.0 / 120.0; // 120 steps per second;
+constexpr float DURATION = 1.0 / 480.0;
 
-cyclone::Vector3 gravityForceForParticle(int p_index, std::shared_ptr<std::vector<Mover>> particles)
+cyclone::Vector3 gravityForceForParticle(int me_index, std::shared_ptr<std::vector<Mover>> particles)
 {
-	Mover& p = (*particles)[p_index];
+	Mover& me = (*particles)[me_index];
 	// Gravitational constant (arbitrary units)
 	const float G = 30;
-	const float smooth_force = 2.0f;
+	const float smooth_force = 1.0f;
 
 	// original particle data
-	const auto p_pos = p.m_particle.getPosition();
-	const auto p_mass = p.mass;
+	const auto me_pos = me.m_particle.getPosition();
 
 	cyclone::Vector3 totalForce(0, 0, 0);
 
-	for (const auto& particle : *particles) {
-		if (particle.id == p.id) continue;
-		cyclone::Vector3 pos = particle.m_particle.getPosition();
-		float mass = particle.mass;
+	for (const auto& other : *particles) {
+		if (other.id == me.id) continue;
 
-		cyclone::Vector3 distVec = pos - p_pos;
+		cyclone::Vector3 distVec = other.m_particle.getPosition() - me_pos;
 		float distanceSq = distVec.squareMagnitude();
 
 		if (distanceSq > 1e-6f) { // Avoid division by zero or self-force
 			float distance = std::sqrt(distanceSq);
 			cyclone::Vector3 direction = distVec / distance;
-			// F = G * m1 * m2 / distVec^2
-			float forceMagnitude = G * p_mass * mass / (distanceSq + smooth_force);
+			// F = G * m_other / distVec^2
+			float forceMagnitude = G * other.mass / (distanceSq + smooth_force);
 			totalForce += direction * forceMagnitude;
 		}
 	}
@@ -68,9 +66,15 @@ void thread_function(
 		*thread_counter += 1;
 		second_job_starter->unlock();
 		for (int i = start; i < end; i++) {
-			(*particles)[i].m_particle.addForce((*forces)[i - start]);
+			//(*particles)[i].m_particle.addForce((*forces)[i - start]);
 			//std::cout << "integrating particle " << i << std::endl;
-			(*particles)[i].m_particle.integrate(DURATION);
+			//(*particles)[i].m_particle.integrate(DURATION);
+			(*particles)[i].m_particle.setVelocity(
+				(*particles)[i].m_particle.getVelocity() + (*forces)[i - start] * DURATION
+			);
+			(*particles)[i].m_particle.setPosition(
+				(*particles)[i].m_particle.getPosition() + (*particles)[i].m_particle.getVelocity() * DURATION
+			);
 		}
 
 		output_mutex->unlock(); // signal that this thread finished
@@ -81,7 +85,7 @@ void thread_function(
 Galaxy::Galaxy(int particles_nb, float radius, float base_velocity_scale) : particles(std::make_shared<std::vector<Mover>>())
 {
 	//// Debug part
-	this->addParticle(Mover(cyclone::Vector3(0, 0, 0), particles_nb, 0.5)); // massive center particle
+	this->addParticle(Mover(cyclone::Vector3(0, 0, 0), particles_nb / 3, 0.5)); // massive center particle
 	particles_nb += 1;
 
 	//// Threads initialization
@@ -159,6 +163,8 @@ void Galaxy::setBaseVelocity(cyclone::Vector3 center, float scale) {
 }
 
 void Galaxy::draw() const {
+	glColor3f(0.5f, 0.5f, 1.0f);
+
 	for (const auto& particle : *this->particles) {
 		particle.draw();
 	}

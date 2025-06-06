@@ -6,19 +6,17 @@
 #include <random.h>
 
 void Mover::draw() const {
-	glLoadName(this->id);
-	glColor3f(0.5f, 0.5f, 1.0f);
-
 	cyclone::Vector3 position = this->m_particle.getPosition();
 
 	glPushMatrix();
 	glTranslated(position.x, position.y, position.z);
-	glutSolidSphere(this->size, 30, 30);
+	glutSolidCube(this->size);
 	glPopMatrix();
-	glLoadName(0);
+	//glLoadName(0);
 }
 
 void Mover::update(float duration, cyclone::Vector3 gravity) {
+	return;
 	if (this->is_selected) {
 		return;
 	}
