@@ -23,7 +23,6 @@ private:
 		const cyclone::Vector3& position,
 		float velocityScale
 	) const;
-	cyclone::Vector3 gravityForceForParticle(Mover& p);
 private:
 	std::shared_ptr<std::vector<Mover>> particles;
 	std::vector<std::thread> threads;
@@ -33,3 +32,4 @@ private:
 	std::shared_ptr<bool> job_type = false; // true = compute forces, false = update particles
 	std::shared_ptr<std::mutex> job_starter;
 };
+cyclone::Vector3 gravityForceForParticle(int p_index, std::shared_ptr<std::vector<Mover>> particles);

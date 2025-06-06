@@ -3,9 +3,69 @@
 #include <mutex>
 #include <tuple>
 
-void thread_function() {
+constexpr auto DURATION = 1.0 / 120.0; // 120 steps per second;
+
+cyclone::Vector3 gravityForceForParticle(int p_index, std::shared_ptr<std::vector<Mover>> particles)
+{
+	Mover& p = (*particles)[p_index];
+	// Gravitational constant (arbitrary units)
+	const float G = 30;
+	const float smooth_force = 2.0f;
+
+	// original particle data
+	const auto p_pos = p.m_particle.getPosition();
+	const auto p_mass = p.mass;
+
+	cyclone::Vector3 totalForce(0, 0, 0);
+
+	for (const auto& particle : *particles) {
+		if (particle.id == p.id) continue;
+		cyclone::Vector3 pos = particle.m_particle.getPosition();
+		float mass = particle.mass;
+
+		cyclone::Vector3 distVec = pos - p_pos;
+		float distanceSq = distVec.squareMagnitude();
+
+		if (distanceSq > 1e-6f) { // Avoid division by zero or self-force
+			float distance = std::sqrt(distanceSq);
+			cyclone::Vector3 direction = distVec / distance;
+			// F = G * m1 * m2 / distVec^2
+			float forceMagnitude = G * p_mass * mass / (distanceSq + smooth_force);
+			totalForce += direction * forceMagnitude;
+		}
+	}
+
+	return totalForce;
+}
+
+void thread_function(
+	std::shared_ptr<std::mutex> job_starter,
+	std::shared_ptr<bool> job_type,
+	std::tuple<int, int> range,
+	std::shared_ptr<std::vector<cyclone::Vector3>> forces,
+	std::shared_ptr<std::mutex> output_mutex,
+	std::shared_ptr<std::vector<Mover>> particles
+) {
+	const int start = std::get<0>(range);
+	const int end = std::get<1>(range);
+
 	while (true) {
-		
+		job_starter->lock(); // wait for the start signal
+		job_starter->unlock();
+
+		if (*job_type == false) { // compute forces
+			for (int i = start; i < end; i++) {
+				(*forces)[i - start] = gravityForceForParticle(i, particles); // store the computed force
+			}
+		}
+		else { // update particles
+			for (int i = start; i < end; i++) {
+				(*particles)[i].m_particle.addForce((*forces)[i - start]);
+				(*particles)[i].m_particle.integrate(DURATION);
+			}
+		}
+
+		output_mutex->unlock(); // signal that this thread finished
 	}
 }
 
@@ -32,7 +92,9 @@ Galaxy::Galaxy(int particles_nb, float radius, float base_velocity_scale) : part
 			std::min(particles_nb, (t + 1) * (particles_nb / NUM_THREADS))
 		);
 		outputs_forces[t]->resize(particles_nb / NUM_THREADS, cyclone::Vector3(0, 0, 0));
-		this->threads.push_back(std::thread());
+		this->threads.emplace_back(std::thread([this, t] {
+			thread_function(job_starter, job_type, thread_ranges[t], outputs_forces[t], outputs_mutexes[t], particles);
+		}));
 	}
 	// sets a correct size for the last thread's output forces
 	this->thread_ranges[NUM_THREADS - 1] = std::make_pair(
@@ -101,9 +163,8 @@ void Galaxy::update(float duration) {
 
 		threads.emplace_back([this, start, end, duration]() {
 			for (int i = start; i < end; ++i) {
-				Mover& particle = (*particles)[i];
-				cyclone::Vector3 force = this->gravityForceForParticle(particle);
-				particle.update(duration, force);
+				cyclone::Vector3 force = gravityForceForParticle(i, particles);
+				//particle.update(duration, force);
 			}
 			});
 	}
@@ -159,36 +220,4 @@ cyclone::Vector3 Galaxy::setDiskRotationVelocity(
 	// Velocity magnitude proportional to distance from center
 	float speed = r.magnitude() * velocityScale;
 	return tangent * speed;
-}
-
-cyclone::Vector3 Galaxy::gravityForceForParticle(Mover& p)
-{
-	// Gravitational constant (arbitrary units)
-	const float G = 30;
-	const float smooth_force = 2.0f;
-
-	// original particle data
-	const auto p_pos = p.m_particle.getPosition();
-	const auto p_mass = p.mass;
-
-	cyclone::Vector3 totalForce(0, 0, 0);
-
-	for (const auto& particle : *this->particles) {
-		if (particle.id == p.id) continue;
-		cyclone::Vector3 pos = particle.m_particle.getPosition();
-		float mass = particle.mass;
-
-		cyclone::Vector3 distVec = pos - p_pos;
-		float distanceSq = distVec.squareMagnitude();
-
-		if (distanceSq > 1e-6f) { // Avoid division by zero or self-force
-			float distance = std::sqrt(distanceSq);
-			cyclone::Vector3 direction = distVec / distance;
-			// F = G * m1 * m2 / distVec^2
-			float forceMagnitude = G * p_mass * mass / (distanceSq + smooth_force);
-			totalForce += direction * forceMagnitude;
-		}
-	}
-
-	return totalForce;
 }
