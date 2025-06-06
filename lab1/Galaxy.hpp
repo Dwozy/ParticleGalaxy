@@ -26,6 +26,7 @@ private:
 private:
 	std::shared_ptr<std::vector<Mover>> particles;
 	std::vector<std::thread> threads;
+	std::shared_ptr<int> thread_counter;
 	std::vector<std::tuple<int, int>> thread_ranges; // (start, end) for each thread
 	std::vector<std::shared_ptr<std::mutex>> outputs_mutexes; // 1 per thread
 	std::vector<std::shared_ptr<std::vector<cyclone::Vector3>>> outputs_forces; // 1 per thread

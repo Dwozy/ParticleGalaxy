@@ -41,6 +41,7 @@ cyclone::Vector3 gravityForceForParticle(int p_index, std::shared_ptr<std::vecto
 void thread_function(
 	std::shared_ptr<std::mutex> first_job_starter,
 	std::shared_ptr<std::mutex> second_job_starter,
+	std::shared_ptr<int> thread_counter,
 	std::tuple<int, int> range,
 	std::shared_ptr<std::vector<cyclone::Vector3>> forces,
 	std::shared_ptr<std::mutex> output_mutex,
@@ -53,6 +54,7 @@ void thread_function(
 	while (true) {
 		first_job_starter->lock(); // wait for the start signal
 		output_mutex->lock(); // lock the output mutex
+		*thread_counter += 1;
 		first_job_starter->unlock();
 
 		for (int i = start; i < end; i++) {
@@ -63,6 +65,7 @@ void thread_function(
 
 		second_job_starter->lock(); // wait for the start signal
 		output_mutex->lock(); // lock the output mutex
+		*thread_counter += 1;
 		second_job_starter->unlock();
 		for (int i = start; i < end; i++) {
 			(*particles)[i].m_particle.addForce((*forces)[i - start]);
@@ -78,10 +81,11 @@ void thread_function(
 Galaxy::Galaxy(int particles_nb, float radius, float base_velocity_scale) : particles(std::make_shared<std::vector<Mover>>())
 {
 	//// Debug part
-	this->addParticle(Mover(cyclone::Vector3(0, 0, 0), 3000, 0.5)); // massive center particle
+	this->addParticle(Mover(cyclone::Vector3(0, 0, 0), particles_nb, 0.5)); // massive center particle
 	particles_nb += 1;
 
 	//// Threads initialization
+	this->thread_counter = std::make_shared<int>(0);
 	this->first_job_starter = std::make_shared<std::mutex>();
 	this->first_job_starter->lock();
 	this->second_job_starter = std::make_shared<std::mutex>();
@@ -100,8 +104,16 @@ Galaxy::Galaxy(int particles_nb, float radius, float base_velocity_scale) : part
 		);
 		outputs_forces[t]->resize(particles_nb / NUM_THREADS, cyclone::Vector3(0, 0, 0));
 		this->threads.emplace_back(std::thread([this, t] {
-			thread_function(first_job_starter, second_job_starter, thread_ranges[t], outputs_forces[t], outputs_mutexes[t], particles);
-			}));
+			thread_function(
+				first_job_starter,
+				second_job_starter,
+				thread_counter,
+				thread_ranges[t],
+				outputs_forces[t],
+				outputs_mutexes[t],
+				particles
+			);
+		}));
 	}
 	// sets a correct size for the last thread's output forces
 	this->thread_ranges[NUM_THREADS - 1] = std::make_pair(
@@ -153,21 +165,29 @@ void Galaxy::draw() const {
 }
 
 void Galaxy::update(float duration) {
-	//std::cout << "update" << std::endl;
+	std::cout << "u" << std::endl;
 	this->second_job_starter->lock();
+	*this->thread_counter = 0;
 	this->first_job_starter->unlock(); // signal threads to start computing forces
+	while (*this->thread_counter != this->threads.size()) {
+		//std::this_thread::sleep_for(std::chrono::milliseconds(1));
+	}
 	for (auto& mutex : this->outputs_mutexes) {
 		mutex->lock(); // wait for threads to finish
 		mutex->unlock();
 	}
-	std::cout << "job1 finished" << std::endl;
+	std::cout << "1" << std::endl;
 	this->first_job_starter->lock();
+	*this->thread_counter = 0;
 	this->second_job_starter->unlock(); // signal threads to start updating particles
+	while (*this->thread_counter != this->threads.size()) {
+		std::this_thread::sleep_for(std::chrono::milliseconds(1));
+	}
 	for (auto& mutex : this->outputs_mutexes) {
 		mutex->lock(); // wait for threads to finish
 		mutex->unlock();
 	}
-	std::cout << "job2 finished" << std::endl;
+	std::cout << "2" << std::endl;
 
 	//// for stability despite lag :
 	//duration = 1.0 / 240.0; // 60 FPS
