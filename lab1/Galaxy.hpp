@@ -5,6 +5,11 @@
 #include <random>
 #include <mutex>
 
+struct Field {
+	cyclone::Vector3 position;
+	float mass;
+};
+
 class Galaxy {
 public:
 	Galaxy(int, float, float);
@@ -15,6 +20,8 @@ public:
 	void addParticle(Mover &particle);
 	void draw() const;
 	void createGalaxyDisk(int numParticlesPerGalaxy, float galaxyRadius);
+	void createGalaxyField(int recursions, float galaxyRadius, bool even, cyclone::Vector3 center);
+	void computeFieldMass();
 	void setBaseVelocity(cyclone::Vector3 center, float scale);
 	void update(float duration);
 private:
@@ -25,6 +32,7 @@ private:
 	) const;
 private:
 	std::shared_ptr<std::vector<Mover>> particles;
+	std::shared_ptr<std::vector<Field>> fields;
 	std::vector<std::thread> threads;
 	std::shared_ptr<int> thread_counter;
 	std::vector<std::tuple<int, int>> thread_ranges; // (start, end) for each thread

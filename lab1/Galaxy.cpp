@@ -10,8 +10,8 @@ cyclone::Vector3 gravityForceForParticle(int me_index, std::shared_ptr<std::vect
 {
 	Mover& me = (*particles)[me_index];
 	// Gravitational constant (arbitrary units)
-	const float G = 30;
-	const float smooth_force = 1.0f;
+	const float G = 20;
+	const float smooth_force = 2.0f;
 
 	// original particle data
 	const auto me_pos = me.m_particle.getPosition();
@@ -82,11 +82,12 @@ void thread_function(
 }
 
 
-Galaxy::Galaxy(int particles_nb, float radius, float base_velocity_scale) : particles(std::make_shared<std::vector<Mover>>())
+Galaxy::Galaxy(int particles_nb, float radius, float base_velocity_scale):
+	particles(std::make_shared<std::vector<Mover>>()), fields(std::make_shared<std::vector<Field>>())
 {
 	//// Debug part
-	this->addParticle(Mover(cyclone::Vector3(0, 0, 0), particles_nb / 3, 0.5)); // massive center particle
-	particles_nb += 1;
+	//this->addParticle(Mover(cyclone::Vector3(0, 0, 0), particles_nb / 3, 0.5)); // massive center particle
+	//particles_nb += 1;
 
 	//// Threads initialization
 	this->thread_counter = std::make_shared<int>(0);
@@ -129,6 +130,7 @@ Galaxy::Galaxy(int particles_nb, float radius, float base_velocity_scale) : part
 		cyclone::Vector3(0, 0, 0));
 
 	//// Particle initialization
+	this->createGalaxyField(12, radius, 0, cyclone::Vector3(0, 0, 0));
 	this->createGalaxyDisk(particles_nb, radius);
 	this->setBaseVelocity(cyclone::Vector3(0, 0, 0), base_velocity_scale);
 
@@ -171,6 +173,7 @@ void Galaxy::draw() const {
 }
 
 void Galaxy::update(float duration) {
+
 	std::cout << "u" << std::endl;
 	this->second_job_starter->lock();
 	*this->thread_counter = 0;
@@ -219,6 +222,38 @@ void Galaxy::createGalaxyDisk(int numParticlesPerGalaxy, float galaxyRadius) {
 	}
 }
 
+void Galaxy::createGalaxyField(int recursions, float radius, bool even, cyclone::Vector3 center) {
+	for (int r = 1; r <= recursions; ++r) {
+        // Use (1 - sqrt(1 - r / recursions)) to bias density toward the center
+        float f = 1.0f - std::sqrt(1.0f - r / (float)recursions);
+		if (even > 0) f = r / (float)recursions;
+        std::cout << "placing points up to " << radius * f << " at recursion " << r << " with math " << f << std::endl;
+		this->fields->push_back(Field{ center + cyclone::Vector3{ f * radius , 0, f * radius * (r % 2) }, 0.0 });
+        this->fields->push_back(Field{center + cyclone::Vector3{ -f * radius, 0, -f * radius * (r % 2) }, 0.0});
+        this->fields->push_back(Field{center + cyclone::Vector3{ -f * radius * (r % 2), 0, f * radius }, 0.0});
+        this->fields->push_back(Field{center + cyclone::Vector3{ f * radius * (r % 2), 0, -f * radius }, 0.0});
+	}
+}
+
+void Galaxy::computeFieldMass() {
+	for (auto& field : *this->fields) {
+		field.mass = 0.0f;
+	}
+	for (auto& particle : *this->particles) {
+		float lowest_distance = -1.0f;
+		int nearest_field_index = -1;
+		for (int f = 0; f < this->fields->size(); f++) {
+			cyclone::Vector3 distVec = particle.m_particle.getPosition() - (*this->fields)[f].position;
+			float distanceSq = distVec.squareMagnitude();
+
+			if (distanceSq < lowest_distance || nearest_field_index < 0) {
+				lowest_distance = distanceSq;
+				nearest_field_index = f;
+			}
+		}
+		(*this->fields)[nearest_field_index].mass += particle.mass;
+	}
+}
 
 // Sets the base velocity for a particle to rotate on a disk around the given center.
 // The velocity is tangent to the circle defined by the center and the particle's position.
