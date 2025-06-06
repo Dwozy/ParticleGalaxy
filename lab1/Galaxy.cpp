@@ -6,33 +6,25 @@
 
 constexpr float DURATION = 1.0 / 480.0;
 
-cyclone::Vector3 gravityForceForParticle(int me_index, std::shared_ptr<std::vector<Mover>> particles)
+cyclone::Vector3 gravityForceForParticle(cyclone::Vector3 particle_position, std::shared_ptr<std::vector<Field>> fields)
 {
-	Mover& me = (*particles)[me_index];
 	// Gravitational constant (arbitrary units)
 	const float G = 20;
 	const float smooth_force = 2.0f;
-
-	// original particle data
-	const auto me_pos = me.m_particle.getPosition();
-
 	cyclone::Vector3 totalForce(0, 0, 0);
 
-	for (const auto& other : *particles) {
-		if (other.id == me.id) continue;
-
-		cyclone::Vector3 distVec = other.m_particle.getPosition() - me_pos;
+	for (const auto& field : *fields) {
+		cyclone::Vector3 distVec = field.position - particle_position;
 		float distanceSq = distVec.squareMagnitude();
 
 		if (distanceSq > 1e-6f) { // Avoid division by zero or self-force
 			float distance = std::sqrt(distanceSq);
 			cyclone::Vector3 direction = distVec / distance;
 			// F = G * m_other / distVec^2
-			float forceMagnitude = G * other.mass / (distanceSq + smooth_force);
+			float forceMagnitude = G * field.mass / (distanceSq + smooth_force);
 			totalForce += direction * forceMagnitude;
 		}
 	}
-
 	return totalForce;
 }
 
@@ -43,7 +35,8 @@ void thread_function(
 	std::tuple<int, int> range,
 	std::shared_ptr<std::vector<cyclone::Vector3>> forces,
 	std::shared_ptr<std::mutex> output_mutex,
-	std::shared_ptr<std::vector<Mover>> particles
+	std::shared_ptr<std::vector<Mover>> particles,
+	std::shared_ptr<std::vector<Field>> fields
 ) {
 	const int start = std::get<0>(range);
 	const int end = std::get<1>(range);
@@ -57,7 +50,7 @@ void thread_function(
 
 		for (int i = start; i < end; i++) {
 			//std::cout << "computing particle " << i << std::endl;
-			(*forces)[i - start] = gravityForceForParticle(i, particles); // store the computed force
+			(*forces)[i - start] = gravityForceForParticle((*particles)[i - start].m_particle.getPosition(), fields); // store the computed force
 		}
 		output_mutex->unlock(); // signal that this thread finished
 
@@ -116,7 +109,8 @@ Galaxy::Galaxy(int particles_nb, float radius, float base_velocity_scale):
 				thread_ranges[t],
 				outputs_forces[t],
 				outputs_mutexes[t],
-				particles
+				particles,
+				fields
 			);
 		}));
 	}
@@ -130,7 +124,7 @@ Galaxy::Galaxy(int particles_nb, float radius, float base_velocity_scale):
 		cyclone::Vector3(0, 0, 0));
 
 	//// Particle initialization
-	this->createGalaxyField(12, radius, 0, cyclone::Vector3(0, 0, 0));
+	this->createGalaxyField(64, radius, 0, cyclone::Vector3(0, 0, 0));
 	this->createGalaxyDisk(particles_nb, radius);
 	this->setBaseVelocity(cyclone::Vector3(0, 0, 0), base_velocity_scale);
 
@@ -175,6 +169,8 @@ void Galaxy::draw() const {
 void Galaxy::update(float duration) {
 
 	std::cout << "u" << std::endl;
+	this->computeFieldMass();
+	std::cout << "f" << std::endl;
 	this->second_job_starter->lock();
 	*this->thread_counter = 0;
 	this->first_job_starter->unlock(); // signal threads to start computing forces
@@ -226,7 +222,7 @@ void Galaxy::createGalaxyField(int recursions, float radius, bool even, cyclone:
 	for (int r = 1; r <= recursions; ++r) {
         // Use (1 - sqrt(1 - r / recursions)) to bias density toward the center
         float f = 1.0f - std::sqrt(1.0f - r / (float)recursions);
-		if (even > 0) f = r / (float)recursions;
+		if (even) f = r / (float)recursions;
         std::cout << "placing points up to " << radius * f << " at recursion " << r << " with math " << f << std::endl;
 		this->fields->push_back(Field{ center + cyclone::Vector3{ f * radius , 0, f * radius * (r % 2) }, 0.0 });
         this->fields->push_back(Field{center + cyclone::Vector3{ -f * radius, 0, -f * radius * (r % 2) }, 0.0});
@@ -252,6 +248,9 @@ void Galaxy::computeFieldMass() {
 			}
 		}
 		(*this->fields)[nearest_field_index].mass += particle.mass;
+	}
+	for (auto& field : *this->fields) {
+		std::cout << "field at " << field.position.toString() << " has mass " << field.mass << std::endl;
 	}
 }
 
