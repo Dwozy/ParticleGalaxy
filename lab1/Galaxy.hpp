@@ -29,7 +29,7 @@ private:
 	std::vector<std::tuple<int, int>> thread_ranges; // (start, end) for each thread
 	std::vector<std::shared_ptr<std::mutex>> outputs_mutexes; // 1 per thread
 	std::vector<std::shared_ptr<std::vector<cyclone::Vector3>>> outputs_forces; // 1 per thread
-	std::shared_ptr<bool> job_type = false; // true = compute forces, false = update particles
-	std::shared_ptr<std::mutex> job_starter;
+	std::shared_ptr<std::mutex> first_job_starter;
+	std::shared_ptr<std::mutex> second_job_starter;
 };
 cyclone::Vector3 gravityForceForParticle(int p_index, std::shared_ptr<std::vector<Mover>> particles);
