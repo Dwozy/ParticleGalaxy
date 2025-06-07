@@ -7,7 +7,7 @@
 
 constexpr float DURATION = 1.0 / 480.0;
 constexpr bool DEBUG = false;
-constexpr bool BH_DEBUG = false;
+constexpr bool BH_DEBUG = true;
 
 // Barnes-Hut gravity calculation using Node tree
 cyclone::Vector3 gravityForceForParticleBarnesHut(
@@ -21,7 +21,9 @@ cyclone::Vector3 gravityForceForParticleBarnesHut(
 
 	std::function<cyclone::Vector3(const std::shared_ptr<Node>)> computeForce;
 	computeForce = [&](const std::shared_ptr<Node> node) -> cyclone::Vector3 {
-		if (!node || node->mass == 0.0f) return cyclone::Vector3(0, 0, 0);
+		if (!node || node->mass == 0.0f) {
+			return cyclone::Vector3(0, 0, 0);
+		}
 
 		cyclone::Vector3 force(0, 0, 0);
 		// distance between the node's center and the particle
@@ -59,7 +61,8 @@ cyclone::Vector3 gravityForceForParticleBarnesHut(
 			cyclone::Vector3 direction = distVec / distance;
 			float forceMagnitude = G * node->mass / (distanceSq + smooth_force);
 			force += direction * forceMagnitude;
-		} else {
+		}
+		else {
 			// Recursively sum force from children
 			for (int i = 0; i < 8; ++i) {
 				if (node->children[i]) {
@@ -69,9 +72,10 @@ cyclone::Vector3 gravityForceForParticleBarnesHut(
 		}
 		return force;
 		};
-
 	auto force = computeForce(root);
-	//std::cout << "force for this particle" << force.toString() << std::endl;
+	if (force.x == 0 && force.y == 0 && force.z == 0) {
+		std::cout << "Warning: zero force computed for particle at " << particle_position.toString() << std::endl;
+	}
 	return force;
 }
 
@@ -87,22 +91,27 @@ void thread_function(
 ) {
 	const int start = std::get<0>(range);
 	const int end = std::get<1>(range);
-	//std::cout << "thread start" << std::endl;
+	//std::cout << "thread start " << start << " " << end << std::endl;
 
 	while (true) {
 		first_job_starter->lock(); // wait for the start signal
 		output_mutex->lock(); // lock the output mutex
 		*thread_counter += 1;
 		first_job_starter->unlock();
+		//std::cout << "thread start " << start << std::endl;
 
 		for (int i = start; i < end; i++) {
 			//std::cout << "computing particle " << i << std::endl;
 			(*forces)[i - start] = gravityForceForParticleBarnesHut(
-				(*particles)[i - start].m_particle.getPosition(),
+				(*particles)[i].m_particle.getPosition(),
 				root,
 				0.5,
 				false
 			); // store the computed force
+			if ((*particles)[i].id == 100) {
+				std::cout << "Particle force: " << (*forces)[i - start].toString() << std::endl;
+			}
+
 		}
 		output_mutex->unlock(); // signal that this thread finished
 
@@ -110,6 +119,7 @@ void thread_function(
 		output_mutex->lock(); // lock the output mutex
 		*thread_counter += 1;
 		second_job_starter->unlock();
+		//std::cout << "Apply thread start " << start << std::endl;
 		for (int i = start; i < end; i++) {
 			//(*particles)[i].m_particle.addForce((*forces)[i - start]);
 			//std::cout << "integrating particle " << i << std::endl;
@@ -120,6 +130,9 @@ void thread_function(
 			(*particles)[i].m_particle.setPosition(
 				(*particles)[i].m_particle.getPosition() + (*particles)[i].m_particle.getVelocity() * DURATION
 			);
+			if ((*particles)[i].id == 100) {
+				std::cout << "Particle position: " << (*particles)[i].m_particle.getPosition().toString() << std::endl;
+			}
 		}
 
 		output_mutex->unlock(); // signal that this thread finished
@@ -283,7 +296,7 @@ void Galaxy::draw() {
 		if (DEBUG || BH_DEBUG) {
 			auto pos = particle.m_particle.getPosition();
 			auto vel = particle.m_particle.getVelocity() * DURATION;
-			auto force = gravityForceForParticleBarnesHut(pos, this->root, 0.5, particle.id == 5) * DURATION;
+			auto force = gravityForceForParticleBarnesHut(pos, this->root, 0.5, particle.id == 100) * DURATION;
 			//glPushMatrix();
 			//glTranslated(particle.m_particle.getPosition().x, particle.m_particle.getPosition().y, particle.m_particle.getPosition().z);
 			if (DEBUG) {
@@ -416,6 +429,10 @@ void Node::create_children() {
 		cyclone::Vector3(center.x, center.y, center.z),
 		cyclone::Vector3(max.x, max.y, max.z)
 	);
+
+	for (auto& child : children) {
+		child->mass = 0.0;
+	}
 }
 
 void Node::insert(cyclone::Vector3 position, double mass) {
