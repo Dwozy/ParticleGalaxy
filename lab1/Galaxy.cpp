@@ -5,6 +5,7 @@
 #include "MyGlWindow.h"
 
 constexpr float DURATION = 1.0 / 480.0;
+constexpr bool DEBUG = true;
 
 cyclone::Vector3 gravityForceForParticle(cyclone::Vector3 particle_position, std::shared_ptr<std::vector<Field>> fields)
 {
@@ -75,12 +76,12 @@ void thread_function(
 }
 
 
-Galaxy::Galaxy(int particles_nb, float radius, float base_velocity_scale):
+Galaxy::Galaxy(int particles_nb, float radius, float base_velocity_scale) :
 	particles(std::make_shared<std::vector<Mover>>()), fields(std::make_shared<std::vector<Field>>())
 {
 	//// Debug part
-	//this->addParticle(Mover(cyclone::Vector3(0, 0, 0), particles_nb / 3, 0.5)); // massive center particle
-	//particles_nb += 1;
+	this->addParticle(Mover(cyclone::Vector3(0, 0, 0), particles_nb / 3, 0.5)); // massive center particle
+	particles_nb += 1;
 
 	//// Threads initialization
 	this->thread_counter = std::make_shared<int>(0);
@@ -112,7 +113,7 @@ Galaxy::Galaxy(int particles_nb, float radius, float base_velocity_scale):
 				particles,
 				fields
 			);
-		}));
+			}));
 	}
 	// sets a correct size for the last thread's output forces
 	this->thread_ranges[NUM_THREADS - 1] = std::make_pair(
@@ -124,7 +125,7 @@ Galaxy::Galaxy(int particles_nb, float radius, float base_velocity_scale):
 		cyclone::Vector3(0, 0, 0));
 
 	//// Particle initialization
-	this->createGalaxyField(64, radius, 0, cyclone::Vector3(0, 0, 0));
+	this->createGalaxyField(12, radius + 10, 1, cyclone::Vector3(0, 0, 0));
 	this->createGalaxyDisk(particles_nb, radius);
 	this->setBaseVelocity(cyclone::Vector3(0, 0, 0), base_velocity_scale);
 
@@ -158,11 +159,45 @@ void Galaxy::setBaseVelocity(cyclone::Vector3 center, float scale) {
 	}
 }
 
-void Galaxy::draw() const {
+void Galaxy::draw() {
 	glColor3f(0.5f, 0.5f, 1.0f);
+	//if (DEBUG) computeFieldMass(); // ensure fields are up to date before drawing forces
 
 	for (const auto& particle : *this->particles) {
 		particle.draw();
+		if (DEBUG) {
+			auto pos = particle.m_particle.getPosition();
+			auto vel = particle.m_particle.getVelocity() * DURATION;
+			auto force = gravityForceForParticle(pos, this->fields) * DURATION;
+			//glPushMatrix();
+			//glTranslated(particle.m_particle.getPosition().x, particle.m_particle.getPosition().y, particle.m_particle.getPosition().z);
+			glLineWidth(0.005f);
+			glBegin(GL_LINES);
+			glColor3f(0, 1, 0);
+
+			glVertex3f(pos.x, pos.y, pos.z);
+			glVertex3f(pos.x + vel.x, pos.y + vel.y, pos.z + vel.z);
+			glEnd();
+			glLineWidth(0.005f);
+			glBegin(GL_LINES);
+			glColor3f(1, 1, 1);
+
+			glVertex3f(pos.x, pos.y, pos.z);
+			glVertex3f(pos.x + force.x, pos.y + force.y, pos.z + force.z);
+			glEnd();
+			//glPopMatrix();
+		}
+	}
+
+	if (DEBUG) {
+		glColor3f(1.0f, 0.2f, 0.2f);
+
+		for (const auto& field : *this->fields) {
+			glPushMatrix();
+			glTranslated(field.position.x, field.position.y, field.position.z);
+			glutSolidCube(0.5);
+			glPopMatrix();
+		}
 	}
 }
 
@@ -219,15 +254,25 @@ void Galaxy::createGalaxyDisk(int numParticlesPerGalaxy, float galaxyRadius) {
 }
 
 void Galaxy::createGalaxyField(int recursions, float radius, bool even, cyclone::Vector3 center) {
-	for (int r = 1; r <= recursions; ++r) {
-        // Use (1 - sqrt(1 - r / recursions)) to bias density toward the center
-        float f = 1.0f - std::sqrt(1.0f - r / (float)recursions);
-		if (even) f = r / (float)recursions;
-        std::cout << "placing points up to " << radius * f << " at recursion " << r << " with math " << f << std::endl;
-		this->fields->push_back(Field{ center + cyclone::Vector3{ f * radius , 0, f * radius * (r % 2) }, 0.0 });
-        this->fields->push_back(Field{center + cyclone::Vector3{ -f * radius, 0, -f * radius * (r % 2) }, 0.0});
-        this->fields->push_back(Field{center + cyclone::Vector3{ -f * radius * (r % 2), 0, f * radius }, 0.0});
-        this->fields->push_back(Field{center + cyclone::Vector3{ f * radius * (r % 2), 0, -f * radius }, 0.0});
+	this->fields->push_back(Field{ center, 0.0 });
+	//for (int r = 1; r <= recursions; ++r) {
+	//	// Use (1 - sqrt(1 - r / recursions)) to bias density toward the center
+	//	float f = 1.0f - std::sqrt(1.0f - r / (float)recursions);
+	//	if (even) f = r / (float)recursions;
+	//	std::cout << "placing points up to " << radius * f << " at recursion " << r << " with math " << f << std::endl;
+	//	this->fields->push_back(Field{ center + cyclone::Vector3{ f * radius , 0, f * radius * (r % 2) }, 0.0 });
+	//	this->fields->push_back(Field{ center + cyclone::Vector3{ -f * radius, 0, -f * radius * (r % 2) }, 0.0 });
+	//	this->fields->push_back(Field{ center + cyclone::Vector3{ -f * radius * (r % 2), 0, f * radius }, 0.0 });
+	//	this->fields->push_back(Field{ center + cyclone::Vector3{ f * radius * (r % 2), 0, -f * radius }, 0.0 });
+	//}
+	auto bottom_left = center - cyclone::Vector3(radius, 0, radius) / 2.0;
+	for (int i = 0; i < recursions + 1; ++i) {
+		for (int j = 0; j < recursions + 1; ++j) {
+			this->fields->push_back(Field{
+				bottom_left + cyclone::Vector3(i * (radius / (float)recursions), 0, j * (radius / (float)recursions)),
+				0
+			});
+		}
 	}
 }
 
@@ -248,9 +293,6 @@ void Galaxy::computeFieldMass() {
 			}
 		}
 		(*this->fields)[nearest_field_index].mass += particle.mass;
-	}
-	for (auto& field : *this->fields) {
-		std::cout << "field at " << field.position.toString() << " has mass " << field.mass << std::endl;
 	}
 }
 

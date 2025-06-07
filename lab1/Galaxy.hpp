@@ -18,7 +18,7 @@ public:
 	void operator=(Galaxy const& x) = delete;
 
 	void addParticle(Mover &particle);
-	void draw() const;
+	void draw();
 	void createGalaxyDisk(int numParticlesPerGalaxy, float galaxyRadius);
 	void createGalaxyField(int recursions, float galaxyRadius, bool even, cyclone::Vector3 center);
 	void computeFieldMass();
