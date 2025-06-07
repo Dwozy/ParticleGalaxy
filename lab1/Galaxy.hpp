@@ -59,5 +59,6 @@ private:
 cyclone::Vector3 gravityForceForParticleBarnesHut(
 	const cyclone::Vector3& particle_position,
 	std::shared_ptr<Node> root,
-	float theta
+	float theta,
+	bool debug
 );

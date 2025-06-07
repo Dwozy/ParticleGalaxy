@@ -6,7 +6,7 @@
 #include "MyGlWindow.h"
 
 constexpr float DURATION = 1.0 / 480.0;
-constexpr bool DEBUG = true;
+constexpr bool DEBUG = false;
 constexpr bool BH_DEBUG = true;
 
 // Barnes-Hut gravity calculation using Node tree
@@ -36,10 +36,10 @@ cyclone::Vector3 gravityForceForParticleBarnesHut(
 			});
 
 		// If node is an extremity (leaf)
-		bool isLeaf = node->children[0] != nullptr;
+		bool isLeaf = node->children[0] == nullptr;
 
 		if (isLeaf || (size / (std::sqrt(distanceSq) + 1e-6f)) < theta) {
-			node->draw(false);
+			if (debug) node->draw(false);
 			if (distanceSq > 1e-6f) {
 				float distance = std::sqrt(distanceSq);
 				cyclone::Vector3 direction = distVec / distance;
@@ -87,7 +87,7 @@ void thread_function(
 				(*particles)[i - start].m_particle.getPosition(),
 				root,
 				0.5,
-				BH_DEBUG && (*particles)[i - start].id == 5 // display debug for 1 particle
+				false
 			); // store the computed force
 		}
 		output_mutex->unlock(); // signal that this thread finished
@@ -202,7 +202,7 @@ void Galaxy::setBaseVelocity(cyclone::Vector3 center, float scale) {
 	}
 }
 
-static void drawWireCube(cyclone::Vector3 bound1, cyclone::Vector3 bound2, cyclone::Vector3 color = {1, 0, 0}) {
+static void drawWireCube(cyclone::Vector3 bound1, cyclone::Vector3 bound2, cyclone::Vector3 color = { 1, 0, 0 }) {
 	glLineWidth(0.005f);
 	glBegin(GL_LINES);
 	glColor3f(color.x, color.y, color.z);
@@ -250,7 +250,7 @@ static void drawWireCube(cyclone::Vector3 bound1, cyclone::Vector3 bound2, cyclo
 }
 
 void Node::draw(bool recurse) const {
-	if (DEBUG) {
+	if (DEBUG || BH_DEBUG) {
 		auto color = recurse ? cyclone::Vector3(1, 0, 0) : cyclone::Vector3(0, 1, 0);
 		drawWireCube(this->bound1, this->bound2, color);
 		if (!recurse) return;
@@ -261,32 +261,34 @@ void Node::draw(bool recurse) const {
 }
 
 void Galaxy::draw() {
-	glColor3f(0.5f, 0.5f, 1.0f);
 	//if (DEBUG) computeFieldMass(); // ensure fields are up to date before drawing forces
 
 	for (const auto& particle : *this->particles) {
+		glColor3f(0.5f, 0.5f, 1.0f);
 		particle.draw();
-		if (DEBUG) {
+		if (DEBUG || BH_DEBUG) {
 			auto pos = particle.m_particle.getPosition();
 			auto vel = particle.m_particle.getVelocity() * DURATION;
-			auto force = gravityForceForParticleBarnesHut(pos, this->root, 0.5) * DURATION;
+			auto force = gravityForceForParticleBarnesHut(pos, this->root, 0.5, particle.id == 5) * DURATION;
 			//glPushMatrix();
 			//glTranslated(particle.m_particle.getPosition().x, particle.m_particle.getPosition().y, particle.m_particle.getPosition().z);
-			glLineWidth(0.005f);
-			glBegin(GL_LINES);
-			glColor3f(0, 1, 0);
+			if (DEBUG) {
+				glLineWidth(0.005f);
+				glBegin(GL_LINES);
+				glColor3f(0, 1, 0);
 
-			glVertex3f(pos.x, pos.y, pos.z);
-			glVertex3f(pos.x + vel.x, pos.y + vel.y, pos.z + vel.z);
-			glEnd();
-			glLineWidth(0.005f);
-			glBegin(GL_LINES);
-			glColor3f(1, 1, 1);
+				glVertex3f(pos.x, pos.y, pos.z);
+				glVertex3f(pos.x + vel.x, pos.y + vel.y, pos.z + vel.z);
+				glEnd();
+				glLineWidth(0.005f);
+				glBegin(GL_LINES);
+				glColor3f(1, 1, 1);
 
-			glVertex3f(pos.x, pos.y, pos.z);
-			glVertex3f(pos.x + force.x, pos.y + force.y, pos.z + force.z);
-			glEnd();
-			//glPopMatrix();
+				glVertex3f(pos.x, pos.y, pos.z);
+				glVertex3f(pos.x + force.x, pos.y + force.y, pos.z + force.z);
+				glEnd();
+				//glPopMatrix();
+			}
 		}
 	}
 
