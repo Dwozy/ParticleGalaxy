@@ -15,7 +15,7 @@ public:
 	Node(cyclone::Vector3, cyclone::Vector3);
 	void insert(cyclone::Vector3 pos, double mass);
 	void create_children();
-	void draw() const;
+	void draw(bool recurse) const;
 	std::shared_ptr<Node> children[8];
 	double mass = 0.0;
 	cyclone::Vector3 bound1;

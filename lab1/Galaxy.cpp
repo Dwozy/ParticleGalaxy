@@ -7,12 +7,14 @@
 
 constexpr float DURATION = 1.0 / 480.0;
 constexpr bool DEBUG = true;
+constexpr bool BH_DEBUG = true;
 
 // Barnes-Hut gravity calculation using Node tree
 cyclone::Vector3 gravityForceForParticleBarnesHut(
 	const cyclone::Vector3& particle_position,
 	std::shared_ptr<Node> root,
-	float theta
+	float theta,
+	bool debug
 ) {
 	const float G = 20.0f;
 	const float smooth_force = 2.0f;
@@ -37,6 +39,7 @@ cyclone::Vector3 gravityForceForParticleBarnesHut(
 		bool isLeaf = node->children[0] != nullptr;
 
 		if (isLeaf || (size / (std::sqrt(distanceSq) + 1e-6f)) < theta) {
+			node->draw(false);
 			if (distanceSq > 1e-6f) {
 				float distance = std::sqrt(distanceSq);
 				cyclone::Vector3 direction = distVec / distance;
@@ -80,7 +83,12 @@ void thread_function(
 
 		for (int i = start; i < end; i++) {
 			//std::cout << "computing particle " << i << std::endl;
-			(*forces)[i - start] = gravityForceForParticleBarnesHut((*particles)[i - start].m_particle.getPosition(), root, 0.5); // store the computed force
+			(*forces)[i - start] = gravityForceForParticleBarnesHut(
+				(*particles)[i - start].m_particle.getPosition(),
+				root,
+				0.5,
+				BH_DEBUG && (*particles)[i - start].id == 5 // display debug for 1 particle
+			); // store the computed force
 		}
 		output_mutex->unlock(); // signal that this thread finished
 
@@ -194,10 +202,10 @@ void Galaxy::setBaseVelocity(cyclone::Vector3 center, float scale) {
 	}
 }
 
-static void drawWireCube(cyclone::Vector3 bound1, cyclone::Vector3 bound2) {
+static void drawWireCube(cyclone::Vector3 bound1, cyclone::Vector3 bound2, cyclone::Vector3 color = {1, 0, 0}) {
 	glLineWidth(0.005f);
 	glBegin(GL_LINES);
-	glColor3f(1, 0, 0);
+	glColor3f(color.x, color.y, color.z);
 
 	// Bottom face
 	glVertex3f(bound1.x, bound1.y, bound1.z);
@@ -241,11 +249,13 @@ static void drawWireCube(cyclone::Vector3 bound1, cyclone::Vector3 bound2) {
 	glEnd();
 }
 
-void Node::draw() const {
+void Node::draw(bool recurse) const {
 	if (DEBUG) {
-		drawWireCube(this->bound1, this->bound2);
+		auto color = recurse ? cyclone::Vector3(1, 0, 0) : cyclone::Vector3(0, 1, 0);
+		drawWireCube(this->bound1, this->bound2, color);
+		if (!recurse) return;
 		for (const auto& child : children) {
-			if (child) child->draw();
+			if (child) child->draw(true);
 		}
 	}
 }
@@ -289,7 +299,7 @@ void Galaxy::draw() {
 			glutSolidCube(0.5);
 			glPopMatrix();
 		}*/
-		this->root->draw();
+		this->root->draw(true);
 	}
 }
 
