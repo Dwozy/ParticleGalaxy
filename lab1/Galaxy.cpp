@@ -1,4 +1,5 @@
 #include <Galaxy.hpp>
+#include <thread>
 
 MoverPtr Galaxy::addParticle(const MoverPtr& particle) {
 	particle->id = this->particles.size();
@@ -21,11 +22,32 @@ void Galaxy::draw() const {
 }
 
 void Galaxy::update(float duration) {
-	// for stability despite lag :
+  // for stability despite lag :
 	duration = 1.0 / 240.0; // 60 FPS
 
-	for (const auto& particle : this->particles) {
-		particle->update(duration, this->gravityForceForParticle(particle));
+	const int numThreads = std::thread::hardware_concurrency();
+	const int numParticles = static_cast<int>(particles.size());
+	const int blockSize = (numParticles + numThreads - 1) / numThreads;
+
+	std::vector<std::thread> threads;
+
+	for (int t = 0; t < numThreads; ++t) {
+		int start = t * blockSize;
+		int end = std::min(start + blockSize, numParticles);
+
+		if (start >= end) break;
+
+		threads.emplace_back([this, start, end, duration]() {
+			for (int i = start; i < end; ++i) {
+				MoverPtr particle = particles[i];
+				cyclone::Vector3 force = this->gravityForceForParticle(particle);
+				particle->update(duration, force);
+			}
+			});
+	}
+
+	for (auto& thread : threads) {
+		thread.join();
 	}
 }
 
