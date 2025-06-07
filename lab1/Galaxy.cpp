@@ -7,7 +7,7 @@
 
 constexpr float DURATION = 1.0 / 480.0;
 constexpr bool DEBUG = false;
-constexpr bool BH_DEBUG = true;
+constexpr bool BH_DEBUG = false;
 
 // Barnes-Hut gravity calculation using Node tree
 cyclone::Vector3 gravityForceForParticleBarnesHut(
@@ -16,7 +16,7 @@ cyclone::Vector3 gravityForceForParticleBarnesHut(
 	float theta,
 	bool debug
 ) {
-	const float G = 20.0f;
+	const float G = 50.0f;
 	const float smooth_force = 2.0f;
 
 	std::function<cyclone::Vector3(const std::shared_ptr<Node>)> computeForce;
@@ -36,18 +36,30 @@ cyclone::Vector3 gravityForceForParticleBarnesHut(
 			});
 
 		// If node is an extremity (leaf)
-		bool isLeaf = node->children[0] == nullptr;
-
-		if (isLeaf || (size / (std::sqrt(distanceSq) + 1e-6f)) < theta) {
-			if (debug) node->draw(false);
-			if (distanceSq > 1e-6f) {
-				float distance = std::sqrt(distanceSq);
-				cyclone::Vector3 direction = distVec / distance;
-				float forceMagnitude = G * node->mass / (distanceSq + smooth_force);
-				force += direction * forceMagnitude;
+		bool isLeaf = true;
+		for (const auto& child : node->children) {
+			if (child && child->mass > 0) {
+				isLeaf = false;
+				break;
 			}
 		}
-		else {
+
+		if (isLeaf || (size / (std::sqrt(distanceSq) + 1e-6f)) < theta) {
+			if (debug) {
+				node->draw(false);
+				glLineWidth(0.005f);
+				glBegin(GL_LINES);
+				glColor3f(0, 0, 1);
+				auto node_pos = node->bound1 + (node->bound2 - node->bound1) / 2.0;
+				glVertex3f(particle_position.x, particle_position.y, particle_position.z);
+				glVertex3f(node_pos.x, node_pos.y, node_pos.z);
+				glEnd();
+			}
+			float distance = std::sqrt(distanceSq);
+			cyclone::Vector3 direction = distVec / distance;
+			float forceMagnitude = G * node->mass / (distanceSq + smooth_force);
+			force += direction * forceMagnitude;
+		} else {
 			// Recursively sum force from children
 			for (int i = 0; i < 8; ++i) {
 				if (node->children[i]) {
@@ -58,7 +70,9 @@ cyclone::Vector3 gravityForceForParticleBarnesHut(
 		return force;
 		};
 
-	return computeForce(root);
+	auto force = computeForce(root);
+	//std::cout << "force for this particle" << force.toString() << std::endl;
+	return force;
 }
 
 void thread_function(
