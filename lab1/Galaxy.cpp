@@ -2,31 +2,60 @@
 #include <thread>
 #include <mutex>
 #include <tuple>
+#include <functional>
 #include "MyGlWindow.h"
 
 constexpr float DURATION = 1.0 / 480.0;
 constexpr bool DEBUG = true;
 
-cyclone::Vector3 gravityForceForParticle(cyclone::Vector3 particle_position, std::shared_ptr<std::vector<Field>> fields)
-{
-	// Gravitational constant (arbitrary units)
-	const float G = 20;
+// Barnes-Hut gravity calculation using Node tree
+cyclone::Vector3 gravityForceForParticleBarnesHut(
+	const cyclone::Vector3& particle_position,
+	std::shared_ptr<Node> root,
+	float theta
+) {
+	const float G = 20.0f;
 	const float smooth_force = 2.0f;
-	cyclone::Vector3 totalForce(0, 0, 0);
 
-	for (const auto& field : *fields) {
-		cyclone::Vector3 distVec = field.position - particle_position;
+	std::function<cyclone::Vector3(const std::shared_ptr<Node>)> computeForce;
+	computeForce = [&](const std::shared_ptr<Node> node) -> cyclone::Vector3 {
+		if (!node || node->mass == 0.0f) return cyclone::Vector3(0, 0, 0);
+
+		cyclone::Vector3 force(0, 0, 0);
+		// distance between the node's center and the particle
+		cyclone::Vector3 distVec = node->bound1 + (node->bound2 - node->bound1) / 2.0 - particle_position;
 		float distanceSq = distVec.squareMagnitude();
 
-		if (distanceSq > 1e-6f) { // Avoid division by zero or self-force
-			float distance = std::sqrt(distanceSq);
-			cyclone::Vector3 direction = distVec / distance;
-			// F = G * m_other / distVec^2
-			float forceMagnitude = G * field.mass / (distanceSq + smooth_force);
-			totalForce += direction * forceMagnitude;
+		// Size of the node (max side length)
+		float size = std::max({
+			std::abs(node->bound2.x - node->bound1.x),
+			std::abs(node->bound2.y - node->bound1.y),
+			std::abs(node->bound2.z - node->bound1.z)
+			});
+
+		// If node is an extremity (leaf)
+		bool isLeaf = node->children[0] != nullptr;
+
+		if (isLeaf || (size / (std::sqrt(distanceSq) + 1e-6f)) < theta) {
+			if (distanceSq > 1e-6f) {
+				float distance = std::sqrt(distanceSq);
+				cyclone::Vector3 direction = distVec / distance;
+				float forceMagnitude = G * node->mass / (distanceSq + smooth_force);
+				force += direction * forceMagnitude;
+			}
 		}
-	}
-	return totalForce;
+		else {
+			// Recursively sum force from children
+			for (int i = 0; i < 8; ++i) {
+				if (node->children[i]) {
+					force += computeForce(node->children[i]);
+				}
+			}
+		}
+		return force;
+		};
+
+	return computeForce(root);
 }
 
 void thread_function(
@@ -37,7 +66,7 @@ void thread_function(
 	std::shared_ptr<std::vector<cyclone::Vector3>> forces,
 	std::shared_ptr<std::mutex> output_mutex,
 	std::shared_ptr<std::vector<Mover>> particles,
-	std::shared_ptr<std::vector<Field>> fields
+	std::shared_ptr<Node> root
 ) {
 	const int start = std::get<0>(range);
 	const int end = std::get<1>(range);
@@ -51,7 +80,7 @@ void thread_function(
 
 		for (int i = start; i < end; i++) {
 			//std::cout << "computing particle " << i << std::endl;
-			(*forces)[i - start] = gravityForceForParticle((*particles)[i - start].m_particle.getPosition(), fields); // store the computed force
+			(*forces)[i - start] = gravityForceForParticleBarnesHut((*particles)[i - start].m_particle.getPosition(), root, 0.5); // store the computed force
 		}
 		output_mutex->unlock(); // signal that this thread finished
 
@@ -77,7 +106,12 @@ void thread_function(
 
 
 Galaxy::Galaxy(int particles_nb, float radius, float base_velocity_scale) :
-	particles(std::make_shared<std::vector<Mover>>()), fields(std::make_shared<std::vector<Field>>())
+	particles(std::make_shared<std::vector<Mover>>()), fields(std::make_shared<std::vector<Field>>()),
+	simulation_radius(radius * 2.0f),
+	root(std::make_shared<Node>(
+		cyclone::Vector3(-simulation_radius, -simulation_radius, -simulation_radius),
+		cyclone::Vector3(simulation_radius, simulation_radius, simulation_radius))
+	)
 {
 	//// Debug part
 	this->addParticle(Mover(cyclone::Vector3(0, 0, 0), particles_nb / 3, 0.5)); // massive center particle
@@ -111,7 +145,7 @@ Galaxy::Galaxy(int particles_nb, float radius, float base_velocity_scale) :
 				outputs_forces[t],
 				outputs_mutexes[t],
 				particles,
-				fields
+				root
 			);
 			}));
 	}
@@ -125,7 +159,8 @@ Galaxy::Galaxy(int particles_nb, float radius, float base_velocity_scale) :
 		cyclone::Vector3(0, 0, 0));
 
 	//// Particle initialization
-	this->createGalaxyField(12, radius + 10, 1, cyclone::Vector3(0, 0, 0));
+	//this->createGalaxyField(12, radius + 10, 1, cyclone::Vector3(0, 0, 0));
+	this->remapBarnesHutTree(); // create the Barnes-Hut tree structure for gravity calculations
 	this->createGalaxyDisk(particles_nb, radius);
 	this->setBaseVelocity(cyclone::Vector3(0, 0, 0), base_velocity_scale);
 
@@ -159,6 +194,62 @@ void Galaxy::setBaseVelocity(cyclone::Vector3 center, float scale) {
 	}
 }
 
+static void drawWireCube(cyclone::Vector3 bound1, cyclone::Vector3 bound2) {
+	glLineWidth(0.005f);
+	glBegin(GL_LINES);
+	glColor3f(1, 0, 0);
+
+	// Bottom face
+	glVertex3f(bound1.x, bound1.y, bound1.z);
+	glVertex3f(bound2.x, bound1.y, bound1.z);
+
+	glVertex3f(bound2.x, bound1.y, bound1.z);
+	glVertex3f(bound2.x, bound1.y, bound2.z);
+
+	glVertex3f(bound2.x, bound1.y, bound2.z);
+	glVertex3f(bound1.x, bound1.y, bound2.z);
+
+	glVertex3f(bound1.x, bound1.y, bound2.z);
+	glVertex3f(bound1.x, bound1.y, bound1.z);
+
+	// Top face
+	glVertex3f(bound1.x, bound2.y, bound1.z);
+	glVertex3f(bound2.x, bound2.y, bound1.z);
+
+	glVertex3f(bound2.x, bound2.y, bound1.z);
+	glVertex3f(bound2.x, bound2.y, bound2.z);
+
+	glVertex3f(bound2.x, bound2.y, bound2.z);
+	glVertex3f(bound1.x, bound2.y, bound2.z);
+
+	glVertex3f(bound1.x, bound2.y, bound2.z);
+	glVertex3f(bound1.x, bound2.y, bound1.z);
+
+	// Vertical edges
+	glVertex3f(bound1.x, bound1.y, bound1.z);
+	glVertex3f(bound1.x, bound2.y, bound1.z);
+
+	glVertex3f(bound2.x, bound1.y, bound1.z);
+	glVertex3f(bound2.x, bound2.y, bound1.z);
+
+	glVertex3f(bound2.x, bound1.y, bound2.z);
+	glVertex3f(bound2.x, bound2.y, bound2.z);
+
+	glVertex3f(bound1.x, bound1.y, bound2.z);
+	glVertex3f(bound1.x, bound2.y, bound2.z);
+
+	glEnd();
+}
+
+void Node::draw() const {
+	if (DEBUG) {
+		drawWireCube(this->bound1, this->bound2);
+		for (const auto& child : children) {
+			if (child) child->draw();
+		}
+	}
+}
+
 void Galaxy::draw() {
 	glColor3f(0.5f, 0.5f, 1.0f);
 	//if (DEBUG) computeFieldMass(); // ensure fields are up to date before drawing forces
@@ -168,7 +259,7 @@ void Galaxy::draw() {
 		if (DEBUG) {
 			auto pos = particle.m_particle.getPosition();
 			auto vel = particle.m_particle.getVelocity() * DURATION;
-			auto force = gravityForceForParticle(pos, this->fields) * DURATION;
+			auto force = gravityForceForParticleBarnesHut(pos, this->root, 0.5) * DURATION;
 			//glPushMatrix();
 			//glTranslated(particle.m_particle.getPosition().x, particle.m_particle.getPosition().y, particle.m_particle.getPosition().z);
 			glLineWidth(0.005f);
@@ -192,20 +283,22 @@ void Galaxy::draw() {
 	if (DEBUG) {
 		glColor3f(1.0f, 0.2f, 0.2f);
 
-		for (const auto& field : *this->fields) {
+		/*for (const auto& field : *this->fields) {
 			glPushMatrix();
 			glTranslated(field.position.x, field.position.y, field.position.z);
 			glutSolidCube(0.5);
 			glPopMatrix();
-		}
+		}*/
+		this->root->draw();
 	}
 }
 
 void Galaxy::update(float duration) {
 
 	std::cout << "u" << std::endl;
-	this->computeFieldMass();
-	std::cout << "f" << std::endl;
+	//this->computeFieldMass();
+	this->remapBarnesHutTree();
+	std::cout << "b" << std::endl;
 	this->second_job_starter->lock();
 	*this->thread_counter = 0;
 	this->first_job_starter->unlock(); // signal threads to start computing forces
@@ -253,6 +346,82 @@ void Galaxy::createGalaxyDisk(int numParticlesPerGalaxy, float galaxyRadius) {
 	}
 }
 
+Node::Node(cyclone::Vector3 bound1, cyclone::Vector3 bound2) :
+	bound1(bound1), bound2(bound2), mass(0.0f), children() {
+	if (bound1.x > bound2.x || bound1.y > bound2.y || bound1.z > bound2.z) {
+		throw std::invalid_argument("Invalid bounding box bounds");
+	}
+}
+
+void Node::create_children() {
+	cyclone::Vector3 center = (bound1 + bound2) / 2.0f;
+	cyclone::Vector3 min = bound1;
+	cyclone::Vector3 max = bound2;
+
+	children[0] = std::make_shared<Node>(
+		cyclone::Vector3(min.x, min.y, min.z),
+		cyclone::Vector3(center.x, center.y, center.z)
+	);
+	children[1] = std::make_shared<Node>(
+		cyclone::Vector3(center.x, min.y, min.z),
+		cyclone::Vector3(max.x, center.y, center.z)
+	);
+	children[2] = std::make_shared<Node>(
+		cyclone::Vector3(min.x, center.y, min.z),
+		cyclone::Vector3(center.x, max.y, center.z)
+	);
+	children[3] = std::make_shared<Node>(
+		cyclone::Vector3(center.x, center.y, min.z),
+		cyclone::Vector3(max.x, max.y, center.z)
+	);
+	children[4] = std::make_shared<Node>(
+		cyclone::Vector3(min.x, min.y, center.z),
+		cyclone::Vector3(center.x, center.y, max.z)
+	);
+	children[5] = std::make_shared<Node>(
+		cyclone::Vector3(center.x, min.y, center.z),
+		cyclone::Vector3(max.x, center.y, max.z)
+	);
+	children[6] = std::make_shared<Node>(
+		cyclone::Vector3(min.x, center.y, center.z),
+		cyclone::Vector3(center.x, max.y, max.z)
+	);
+	children[7] = std::make_shared<Node>(
+		cyclone::Vector3(center.x, center.y, center.z),
+		cyclone::Vector3(max.x, max.y, max.z)
+	);
+}
+
+void Node::insert(cyclone::Vector3 position, double mass) {
+	if (this->mass == 0.0f) {
+		this->mass = mass;
+		this->create_children();
+		return;
+	}
+
+	for (auto& child : children) {
+		if (position.x >= child->bound1.x && position.x <= child->bound2.x &&
+			position.y >= child->bound1.y && position.y <= child->bound2.y &&
+			position.z >= child->bound1.z && position.z <= child->bound2.z) {
+			child->insert(position, mass);
+			this->mass += mass;
+			return;
+		}
+	}
+	std::cout << "/!\\" << std::endl;
+	//throw std::runtime_error("Position out of bounds in Node::insert");
+}
+
+void Galaxy::remapBarnesHutTree() {
+	this->root = std::make_shared<Node>(
+		cyclone::Vector3(-this->simulation_radius, -this->simulation_radius, -this->simulation_radius),
+		cyclone::Vector3(this->simulation_radius, this->simulation_radius, this->simulation_radius)
+	);
+	for (const auto& particle : *this->particles) {
+		this->root->insert(particle.m_particle.getPosition(), particle.mass);
+	}
+}
+
 void Galaxy::createGalaxyField(int recursions, float radius, bool even, cyclone::Vector3 center) {
 	this->fields->push_back(Field{ center, 0.0 });
 	//for (int r = 1; r <= recursions; ++r) {
@@ -265,7 +434,7 @@ void Galaxy::createGalaxyField(int recursions, float radius, bool even, cyclone:
 	//	this->fields->push_back(Field{ center + cyclone::Vector3{ -f * radius * (r % 2), 0, f * radius }, 0.0 });
 	//	this->fields->push_back(Field{ center + cyclone::Vector3{ f * radius * (r % 2), 0, -f * radius }, 0.0 });
 	//}
-	auto bottom_left = center - cyclone::Vector3(radius, 0, radius) / 2.0;
+	/*auto bottom_left = center - cyclone::Vector3(radius, 0, radius) / 2.0;
 	for (int i = 0; i < recursions + 1; ++i) {
 		for (int j = 0; j < recursions + 1; ++j) {
 			this->fields->push_back(Field{
@@ -273,7 +442,7 @@ void Galaxy::createGalaxyField(int recursions, float radius, bool even, cyclone:
 				0
 			});
 		}
-	}
+	}*/
 }
 
 void Galaxy::computeFieldMass() {
