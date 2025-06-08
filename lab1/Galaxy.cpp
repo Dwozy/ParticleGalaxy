@@ -456,7 +456,7 @@ void Node::insert(cyclone::Vector3 position, double mass) {
 }
 
 void Galaxy::remapBarnesHutTree() {
-	this->root = std::make_shared<Node>(
+	*this->root = Node(
 		cyclone::Vector3(-this->simulation_radius, -this->simulation_radius, -this->simulation_radius),
 		cyclone::Vector3(this->simulation_radius, this->simulation_radius, this->simulation_radius)
 	);
