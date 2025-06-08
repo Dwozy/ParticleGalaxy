@@ -11,7 +11,7 @@ static double DEFAULT_VIEW_CENTER[3] = { 0, 0, 0 };
 static double DEFAULT_UP_VECTOR[3] = { 0, 1, 0 };
 
 MyGlWindow::MyGlWindow(int x, int y, int w, int h) :
-	Fl_Gl_Window(x, y, w, h), galaxy(1000, 20, 0)
+	Fl_Gl_Window(x, y, w, h), galaxy(2500, 20, 3)
 	//==========================================================================
 {
 	// INITIALISATION

@@ -7,7 +7,7 @@
 
 constexpr float DURATION = 1.0 / 480.0;
 constexpr bool DEBUG = false;
-constexpr bool BH_DEBUG = true;
+constexpr bool BH_DEBUG = false;
 
 // Barnes-Hut gravity calculation using Node tree
 cyclone::Vector3 gravityForceForParticleBarnesHut(
@@ -73,9 +73,6 @@ cyclone::Vector3 gravityForceForParticleBarnesHut(
 		return force;
 		};
 	auto force = computeForce(root);
-	if (force.x == 0 && force.y == 0 && force.z == 0) {
-		std::cout << "Warning: zero force computed for particle at " << particle_position.toString() << std::endl;
-	}
 	return force;
 }
 
@@ -108,9 +105,6 @@ void thread_function(
 				0.5,
 				false
 			); // store the computed force
-			if ((*particles)[i].id == 100) {
-				std::cout << "Particle force: " << (*forces)[i - start].toString() << std::endl;
-			}
 
 		}
 		output_mutex->unlock(); // signal that this thread finished
@@ -130,9 +124,6 @@ void thread_function(
 			(*particles)[i].m_particle.setPosition(
 				(*particles)[i].m_particle.getPosition() + (*particles)[i].m_particle.getVelocity() * DURATION
 			);
-			if ((*particles)[i].id == 100) {
-				std::cout << "Particle position: " << (*particles)[i].m_particle.getPosition().toString() << std::endl;
-			}
 		}
 
 		output_mutex->unlock(); // signal that this thread finished
@@ -334,10 +325,10 @@ void Galaxy::draw() {
 
 void Galaxy::update(float duration) {
 
-	std::cout << "u" << std::endl;
+	//std::cout << "u" << std::endl;
 	//this->computeFieldMass();
 	this->remapBarnesHutTree();
-	std::cout << "b" << std::endl;
+	//std::cout << "b" << std::endl;
 	this->second_job_starter->lock();
 	*this->thread_counter = 0;
 	this->first_job_starter->unlock(); // signal threads to start computing forces
@@ -348,7 +339,7 @@ void Galaxy::update(float duration) {
 		mutex->lock(); // wait for threads to finish
 		mutex->unlock();
 	}
-	std::cout << "1" << std::endl;
+	//std::cout << "1" << std::endl;
 	this->first_job_starter->lock();
 	*this->thread_counter = 0;
 	this->second_job_starter->unlock(); // signal threads to start updating particles
@@ -359,7 +350,7 @@ void Galaxy::update(float duration) {
 		mutex->lock(); // wait for threads to finish
 		mutex->unlock();
 	}
-	std::cout << "2" << std::endl;
+	//std::cout << "2" << std::endl;
 }
 
 
@@ -451,7 +442,7 @@ void Node::insert(cyclone::Vector3 position, double mass) {
 			return;
 		}
 	}
-	std::cout << "/!\\" << std::endl;
+	//std::cout << "/!\\" << std::endl;
 	//throw std::runtime_error("Position out of bounds in Node::insert");
 }
 
