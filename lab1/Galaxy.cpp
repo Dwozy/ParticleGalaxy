@@ -187,6 +187,7 @@ Galaxy::Galaxy(int particles_nb, float radius, float base_velocity_scale) :
 	//// Particle initialization
 	//this->createGalaxyField(12, radius + 10, 1, cyclone::Vector3(0, 0, 0));
 	this->remapBarnesHutTree(); // create the Barnes-Hut tree structure for gravity calculations
+	particles_nb--;
 	this->createGalaxyDisk(particles_nb, radius);
 	this->setBaseVelocity(cyclone::Vector3(0, 0, 0), base_velocity_scale);
 
