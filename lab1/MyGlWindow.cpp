@@ -10,21 +10,8 @@ static double DEFAULT_VIEW_POINT[3] = { 30, 30, 30 };
 static double DEFAULT_VIEW_CENTER[3] = { 0, 0, 0 };
 static double DEFAULT_UP_VECTOR[3] = { 0, 1, 0 };
 
-// OUR FUNCTIONS:
-
-void create_galaxy(MyGlWindow* window)
-{
-	window->galaxy.addParticle(std::make_shared<Mover>(cyclone::Vector3(0, 0, 0), 3000, 0.5));
-	window->galaxy.createGalaxyDisk(1000, 30);
-	window->galaxy.setBaseVelocity(cyclone::Vector3(0, 0, 0), 3);
-}
-
-// ^ OUR FUNCTIONS
-
-
-
 MyGlWindow::MyGlWindow(int x, int y, int w, int h) :
-	Fl_Gl_Window(x, y, w, h)
+	Fl_Gl_Window(x, y, w, h), galaxy(2500, 20, 3)
 	//==========================================================================
 {
 	// INITIALISATION
@@ -37,10 +24,8 @@ MyGlWindow::MyGlWindow(int x, int y, int w, int h) :
 	m_viewer = new Viewer(viewPoint, viewCenter, upVector, 45.0f, aspect);
 	TimingData::init();
 	run = 0;
-
-	// GALAXY PART
-	create_galaxy(this);
 }
+
 void MyGlWindow::setupLight(float x, float y, float z)
 {
 
