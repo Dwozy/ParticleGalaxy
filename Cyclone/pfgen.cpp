@@ -32,6 +32,11 @@ void ParticleForceRegistry::add(Particle* particle, ParticleForceGenerator *fg)
     registrations.push_back(registration);
 }
 
+void ParticleForceRegistry::clear()
+{
+    registrations.clear();
+}
+
 ParticleGravity::ParticleGravity(const Vector3& gravity)
 : gravity(gravity)
 {
